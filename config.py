@@ -9,7 +9,6 @@ class ConfigFastAPI:
 
     def __init__(self) -> None:
         load_dotenv()
-        print("Loading environment variables...")
         # FastAPI Environment Variables
         self.FASTAPI = {
             "HOST": os.getenv("HOST") or "127.0.0.1",
@@ -22,7 +21,6 @@ class ConfigFastAPI:
             "SSL_KEY": os.getenv("SSL_KEY") or None,
             "SSL_CERT": os.getenv("SSL_CERT") or None,
         }
-        print(f"FASTAPI Environment Variables: {self.FASTAPI}")
         self.FASTAPI.update(
             {
                 "FASTAPI_URL": f"https://{self.FASTAPI['SUBDOMAIN']}:{self.FASTAPI['PORT']}"
@@ -32,6 +30,9 @@ class ConfigFastAPI:
             self.FASTAPI.update({"CORS_ORIGINS": os.getenv("CORS_ORIGINS").split(" ")})
 
         self.COSMOS_RPC_URL = os.getenv("COSMOS_RPC_URL")
+        if self.COSMOS_RPC_URL.endswith("/"):
+            self.COSMOS_RPC_URL = self.COSMOS_RPC_URL[:-1]
+
         self.API_KEYS = {}
         self.API_SECRETS = {}
         self.API_URLS = {}
