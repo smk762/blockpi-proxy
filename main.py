@@ -32,6 +32,7 @@ if config.FASTAPI["USE_MIDDLEWARE"]:
 
 
 async def get_rpc_resp(network, path):
+    network = network.lower()
     client = httpx.AsyncClient(base_url=config.API_URLS[network]["rpc"])
     req = client.build_request("GET", path)
     r = await client.send(req, stream=True)
@@ -41,6 +42,7 @@ async def get_rpc_resp(network, path):
 
 
 async def get_ws_resp(websocket: WebSocket, network):
+    network = network.lower()
     await websocket.accept()
     if network not in config.API_URLS:
         upstream_ws_url = "wss://echo.websocket.org"
@@ -84,6 +86,7 @@ def healthcheck(request: Request):
     methods=["GET", "POST", "OPTIONS"],
 )
 async def get_rpc(network: str, path: str):
+    network = network.lower()
     if network not in config.API_URLS:
         return JSONResponse({"error": f"network {network} not supported!"})
     return await get_rpc_resp(network, path)
@@ -91,6 +94,7 @@ async def get_rpc(network: str, path: str):
 
 @app.websocket("/ws/{network}")
 async def websocket_proxy(websocket: WebSocket, network: str):
+    network = network.lower()
     await get_ws_resp(websocket, network)
 
 
