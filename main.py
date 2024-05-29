@@ -37,7 +37,10 @@ async def get_rpc_resp(request, network, path):
     url = f'{config.API_URLS[network]["rpc"]}{path}'
     if request.method == "POST":
         data = await request.json()
-        r = requests.post(url, json=data)
+        # Sees blockpi wants the post sent as get *shrug*
+        # This is a hack to get around that, and might not
+        # work for all networks. Further testing is needed.
+        r = requests.get(url, json=data)
     else:
         r = requests.get(url)
     return JSONResponse(r.json())
