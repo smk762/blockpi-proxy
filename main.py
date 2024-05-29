@@ -35,10 +35,10 @@ async def get_rpc_resp(network, path):
     network = network.lower()
     client = httpx.AsyncClient(base_url=config.API_URLS[network]["rpc"])
     req = client.build_request("GET", path)
-    r = await client.send(req, stream=True)
-    return StreamingResponse(
-        r.aiter_raw(), background=BackgroundTask(r.aclose), headers=r.headers
-    )
+    r = await client.send(req)
+    logger.calc(r)
+    logger.calc(r.json())
+    return JSONResponse(r.json())
 
 
 async def get_ws_resp(websocket: WebSocket, network):
@@ -89,13 +89,15 @@ async def get_rpc(network: str, path: str):
     network = network.lower()
     if network not in config.API_URLS:
         return JSONResponse({"error": f"network {network} not supported!"})
+    if path == "websocket":
+        return await get_ws_resp(WebSocket, network)        
     return await get_rpc_resp(network, path)
 
 
 @app.websocket("/ws/{network}")
 async def websocket_proxy(websocket: WebSocket, network: str):
     network = network.lower()
-    await get_ws_resp(websocket, network)
+    return await get_ws_resp(websocket, network)
 
 
 if __name__ == "__main__":
