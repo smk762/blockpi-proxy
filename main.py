@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 import httpx  # httpx streaming allows for larger files & less memory usage
 from websockets import connect
 from logger import logger
+import requests
 
 
 from config import ConfigFastAPI
@@ -31,13 +32,14 @@ if config.FASTAPI["USE_MIDDLEWARE"]:
     )
 
 
-async def get_rpc_resp(network, path):
+async def get_rpc_resp(request, network, path):
     network = network.lower()
-    client = httpx.AsyncClient(base_url=config.API_URLS[network]["rpc"])
-    req = client.build_request("GET", path)
-    r = await client.send(req)
-    logger.calc(r)
-    logger.calc(r.json())
+    url = f'{config.API_URLS[network]["rpc"]}{path}'
+    if request.method == "POST":
+        data = await request.json()
+        r = requests.post(url, json=data)
+    else:
+        r = requests.get(url)
     return JSONResponse(r.json())
 
 
@@ -48,6 +50,8 @@ async def get_ws_resp(websocket: WebSocket, network):
         upstream_ws_url = "wss://echo.websocket.org"
     else:
         upstream_ws_url = config.API_URLS[network]["wss"]
+    if upstream_ws_url.endswith("/"):
+        upstream_ws_url = upstream_ws_url[:-1]
     async with connect(upstream_ws_url) as upstream_ws:
         try:
             while True:
@@ -85,14 +89,20 @@ def healthcheck(request: Request):
     "/rpc/{network}/{path:path}",
     methods=["GET", "POST", "OPTIONS"],
 )
-async def get_rpc(network: str, path: str):
+async def get_rpc(request: Request, network: str, path: str):
     network = network.lower()
     if network not in config.API_URLS:
         return JSONResponse({"error": f"network {network} not supported!"})
-    return await get_rpc_resp(network, path)
+    return await get_rpc_resp(request, network, path)
 
 
 @app.websocket("/rpc/{network}/websocket")
+async def websocket_proxy(websocket: WebSocket, network: str):
+    network = network.lower()
+    return await get_ws_resp(websocket, network)
+
+
+@app.websocket("/ws/{network}/websocket")
 async def websocket_proxy(websocket: WebSocket, network: str):
     network = network.lower()
     return await get_ws_resp(websocket, network)
