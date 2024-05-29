@@ -4,6 +4,7 @@ import json_utils
 
 script_path = os.path.realpath(os.path.dirname(__file__))
 
+
 class ConfigFastAPI:
     """Class for API configuration."""
 
@@ -29,20 +30,23 @@ class ConfigFastAPI:
         if os.getenv("CORS_ORIGINS"):
             self.FASTAPI.update({"CORS_ORIGINS": os.getenv("CORS_ORIGINS").split(" ")})
 
-        self.COSMOS_RPC_URL = os.getenv("COSMOS_RPC_URL")
-        if self.COSMOS_RPC_URL.endswith("/"):
-            self.COSMOS_RPC_URL = self.COSMOS_RPC_URL[:-1]
-
         self.API_KEYS = {}
         self.API_SECRETS = {}
         self.API_URLS = {}
         for k, v in os.environ.items():
             self.API_KEYS.update({k.replace("_APIKEY", ""): v})
             self.API_SECRETS.update({k.replace("_SECRET", ""): v})
-            if "_BASEURL" in k:
+            if k.endswith("_URL"):
                 if v.endswith("/"):
                     v = v[:-1]
-                self.API_URLS.update({k.replace("_BASEURL", ""): v})
+                network = k.split("_")[0].lower()
+                proto = k.split("_")[1].lower()
+                if network not in self.API_URLS:
+                    self.API_URLS.update({network.lower(): {"rpc": None, "wss": None}})
+                if proto == "rpc":
+                    self.API_URLS[network]["rpc"] = v
+                if proto == "wss":
+                    self.API_URLS[network]["wss"] = v
 
     def int_or_none(self, value):
         """Returns an integer or None."""

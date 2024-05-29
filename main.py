@@ -3,13 +3,13 @@ import json
 from dotenv import load_dotenv
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import Request, FastAPI, WebSocket, APIRouter
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, APIRouter
 from starlette.requests import Request
 from starlette.responses import StreamingResponse
 from starlette.background import BackgroundTask
 from fastapi.responses import HTMLResponse
 import httpx  # httpx streaming allows for larger files & less memory usage
-from httpx_ws import aconnect_ws
+from websockets import connect
 from logger import logger
 
 
@@ -30,8 +30,6 @@ if config.FASTAPI["USE_MIDDLEWARE"]:
         allow_headers=["*"],
     )
 
-networks = {"cosmos": {"rpc": config.COSMOS_RPC_URL}}
-
 
 @app.get("/", tags=["api"])
 def get_response(request: Request):
@@ -44,7 +42,7 @@ def get_response(request: Request):
 
 
 async def get_rpc_resp(network, path):
-    client = httpx.AsyncClient(base_url=networks[network]["rpc"])
+    client = httpx.AsyncClient(base_url=config.API_URLS[network]["rpc"])
     req = client.build_request("GET", path)
     r = await client.send(req, stream=True)
     return StreamingResponse(
@@ -52,40 +50,35 @@ async def get_rpc_resp(network, path):
     )
 
 
-async def get_wss_resp(network, path):
-    url = f"{networks[network]['rpc']}/websocket"
-    client = httpx.AsyncClient()
-    async with aconnect_ws(url, client) as ws:
-        message = await ws.receive_text()
-        print(message)
-        return message
+@app.api_route(
+    "/rpc/{network}/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
+)
+async def get_rpc(network: str, path: str):
+    return await get_rpc_resp(network, path)
 
 
-@app.get("/rpc/cosmos/{path:path}", tags=["BlockPi"])
-async def get_rpc(path: str):
-    return await get_rpc_resp("cosmos", path)
+async def get_ws_resp(websocket: WebSocket, network):
+    await websocket.accept()
+    upstream_ws_url = config.API_URLS[network]["wss"]
+    logger.calc(upstream_ws_url)
+    async with connect(upstream_ws_url) as upstream_ws:
+        try:
+            while True:
+                data = await websocket.receive_text()
+                await upstream_ws.send(data)
+                response = await upstream_ws.recv()
+                await websocket.send_text(response)
+        except WebSocketDisconnect:
+            await websocket.close()
+        except Exception as e:
+            await websocket.close()
+            raise e
 
 
-@app.post("/rpc/cosmos/{path:path}", tags=["BlockPi"])
-async def post_rpc(path: str):
-    logger.info(f"POST request to {path}")
-    return await get_rpc_resp("cosmos", path)
-
-
-@app.websocket("/rpc/cosmos/{path:path}")
-async def wss_rpc(path: str):
-    return await get_wss_resp("cosmos", path)
-
-
-# TODO: Not working yet, needs review.
-def websocket_endpoint(*, websocket: WebSocket, path: str, q: int | None = None):
-    websocket.accept()
-    while True:
-        data = websocket.receive_text()
-        if q is not None:
-            websocket.send_text(f"Query parameter q is: {q}")
-        logger.info(f"Received data: {data}")
-        return websocket.send_text(data)
+@app.websocket("/ws/{network}")
+async def websocket_proxy(websocket: WebSocket, network: str):
+    await get_ws_resp(websocket, network)
 
 
 if __name__ == "__main__":
