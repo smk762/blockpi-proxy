@@ -89,12 +89,10 @@ async def get_rpc(network: str, path: str):
     network = network.lower()
     if network not in config.API_URLS:
         return JSONResponse({"error": f"network {network} not supported!"})
-    if path == "websocket":
-        return await get_ws_resp(WebSocket, network)        
     return await get_rpc_resp(network, path)
 
 
-@app.websocket("/ws/{network}")
+@app.websocket("/rpc/{network}/websocket")
 async def websocket_proxy(websocket: WebSocket, network: str):
     network = network.lower()
     return await get_ws_resp(websocket, network)
