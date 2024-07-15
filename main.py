@@ -32,18 +32,23 @@ if config.FASTAPI["USE_MIDDLEWARE"]:
     )
 
 
-async def get_rpc_resp(request, network, path):
+async def get_rpc_resp(request, network, path=None):
     network = network.lower()
-    url = f'{config.API_URLS[network]["rpc"]}{path}'
+    logger.calc(config.API_URLS[network])
+    url = config.API_URLS[network]["rpc"]
+    if path is not None:
+        url += path
+    logger.calc(url)
     if request.method == "POST":
         data = await request.json()
-        # Sees blockpi wants the post sent as get *shrug*
-        # This is a hack to get around that, and might not
-        # work for all networks. Further testing is needed.
-        r = requests.get(url, json=data)
+        logger.calc(data)
+        r = requests.post(url, json=data)
     else:
         r = requests.get(url)
-    return JSONResponse(r.json())
+    try:
+     return JSONResponse(r.json())
+    except:
+     print(r.text)
 
 
 async def get_ws_resp(websocket: WebSocket, network):
@@ -67,10 +72,10 @@ async def get_ws_resp(websocket: WebSocket, network):
                     response = await upstream_ws.recv()
                     await websocket.send_text(response)
         except WebSocketDisconnect:
-            await websocket.close()
+            pass
         except Exception as e:
             await websocket.close()
-            raise e
+            logger.error(e)
 
 
 
@@ -88,15 +93,28 @@ def healthcheck(request: Request):
     return {"status": "online"}
 
 
-@app.api_route(
-    "/rpc/{network}/{path:path}",
-    methods=["GET", "POST", "OPTIONS"],
+@app.get(
+    "/rpc/{network}/{path:path}"
 )
 async def get_rpc(request: Request, network: str, path: str):
+    logger.calc(request.method)
+    logger.calc(network)
+    logger.calc(path)
     network = network.lower()
     if network not in config.API_URLS:
         return JSONResponse({"error": f"network {network} not supported!"})
     return await get_rpc_resp(request, network, path)
+
+@app.post(
+    "/rpc/{network}"
+)
+async def get_rpc(request: Request, network: str):
+    logger.loop(request.method)
+    logger.loop(network)
+    network = network.lower()
+    if network not in config.API_URLS:
+        return JSONResponse({"error": f"network {network} not supported!"})
+    return await get_rpc_resp(request, network)
 
 
 @app.websocket("/rpc/{network}/websocket")
