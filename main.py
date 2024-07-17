@@ -150,6 +150,16 @@ async def ping_pong(websocket):
 
 
 @app.websocket("/rpc/{network}/websocket")
+async def ws_proxy(websocket: WebSocket, network: str):
+    await websocket.accept()
+    try:
+        await connect_to_upstream(websocket, network)
+    except Exception as e:
+        print(f"Proxy error: {e}")
+    finally:
+        await websocket.close()
+
+
 @app.websocket("/ws/{network}/websocket")
 async def websocket_proxy(websocket: WebSocket, network: str):
     await websocket.accept()
