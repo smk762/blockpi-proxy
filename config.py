@@ -37,9 +37,7 @@ class ConfigFastAPI:
             self.API_KEYS.update({k.replace("_APIKEY", ""): v})
             self.API_SECRETS.update({k.replace("_SECRET", ""): v})
             if k.endswith("_URL"):
-                if "atom" in k and not v.endswith("/"):
-                    v = f"{v}/"
-                elif v.endswith("/"):
+                if v.endswith("/"):
                     v = v[:-1]
                 network = k.split("_")[0].lower()
                 proto = k.split("_")[1].lower()

@@ -19,7 +19,7 @@ services:
         max-size: "20m"
         max-file: "10"
     restart: always
-    command: ["poetry", "run", "python3", "main.py"]
+    command: ["poetry", "run", "python3.12", "main.py"]
     ulimits:
       nproc: 65535
       nofile:

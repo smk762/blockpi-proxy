@@ -21,6 +21,8 @@ RUN apt-get -qq -y update && \
         python3.12-dev \
         python3.12-distutils \
         python3.12-venv \
+        python3-dotenv \
+        python3-pip \
         build-essential \
         postgresql \
         postgresql-contrib \
@@ -43,7 +45,7 @@ RUN rm /usr/bin/python3 && ln -s /usr/bin/python3.12 /usr/bin/python3
 RUN chown -R komodian:notarygroup /home/komodian
 USER komodian
 WORKDIR /home/komodian/api
-RUN mkdir /home/komodian/poetry
+RUN mkdir /home/komodian/poetryt
 RUN curl https://bootstrap.pypa.io/get-pip.py | python
 RUN python3.12 -m pip install -U pip
 ENV POETRY_HOME="/home/komodian/poetry" \
